@@ -1,0 +1,632 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - ToyStore{% endblock %}
+
+{% block head_css %}
+<style>
+    /* Base card styles with improved aesthetics */
+    .summary-cards { 
+        display: grid; 
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); 
+        gap: 1.5rem; 
+        margin-bottom: 2.5rem; 
+    }
+    .summary-card { 
+        background-color: white; 
+        border-radius: var(--border-radius); 
+        padding: 1.5rem; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+        display: flex; 
+        align-items: center; 
+        transition: all 0.3s ease;
+        border: 1px solid rgba(0,0,0,0.03);
+    }
+    .summary-card:hover { 
+        transform: translateY(-5px); 
+        box-shadow: 0 8px 15px rgba(0,0,0,0.08); 
+    }
+    .card-icon { 
+        width: 50px; 
+        height: 50px; 
+        border-radius: 12px; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        margin-right: 1.2rem; 
+        font-size: 1.5rem; 
+        transition: all 0.3s ease;
+    }
+    .summary-card:hover .card-icon {
+        transform: scale(1.1);
+    }
+    .icon-primary { background-color: var(--primary-light); color: var(--primary); }
+    .icon-success { background-color: var(--success-light); color: var(--success); }
+    .icon-warning { background-color: var(--warning-light); color: var(--warning); }
+    .icon-danger { background-color: var(--danger-light); color: var(--danger); }
+    .icon-info { background-color: var(--info-light); color: var(--info); }
+    .icon-secondary { background-color: #f0f2f5; color: #4a5568; }
+    .card-info { flex: 1; }
+    .card-value { 
+        font-size: 1.7rem; 
+        font-weight: 700; 
+        margin-bottom: 0.3rem; 
+        line-height: 1.1; 
+        color: var(--dark);
+        letter-spacing: -0.5px;
+    }
+    .card-label { 
+        color: var(--gray-600); 
+        font-size: 0.9rem;
+        font-weight: 500;
+        letter-spacing: 0.2px;
+    }
+
+    /* Section styling with improved visuals */
+    .analytics-section { 
+        margin-bottom: 3rem;
+        background-color: rgba(250, 250, 252, 0.7);
+        padding: 1.5rem;
+        border-radius: var(--border-radius);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    .section-title { 
+        font-size: 1.4rem; 
+        font-weight: 600; 
+        margin-bottom: 1.5rem; 
+        padding-bottom: 0.6rem; 
+        border-bottom: 2px solid var(--primary-light); 
+        color: var(--primary-dark);
+        display: flex;
+        align-items: center;
+    }
+    .section-title i {
+        margin-right: 0.5rem;
+        color: var(--primary);
+    }
+    .analytics-grid { 
+        display: grid; 
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); 
+        gap: 1.5rem; 
+    }
+    .analytics-card { 
+        background-color: white; 
+        border-radius: var(--border-radius); 
+        padding: 1.5rem; 
+        box-shadow: 0 4px 10px rgba(0,0,0,0.04);
+        transition: all 0.2s ease;
+        border: 1px solid rgba(0,0,0,0.02);
+    }
+    .analytics-card:hover {
+        box-shadow: 0 6px 15px rgba(0,0,0,0.07);
+    }
+    .analytics-card h3 { 
+        font-size: 1.1rem; 
+        font-weight: 600; 
+        margin-bottom: 1.2rem; 
+        display: flex; 
+        align-items: center; 
+        color: var(--dark); 
+        border-bottom: 1px solid var(--border-color); 
+        padding-bottom: 0.7rem; 
+        margin-top: 0;
+    }
+    .analytics-card h3 i { 
+        margin-right: 0.8rem; 
+        color: var(--primary); 
+        font-size: 1.1rem;
+        background-color: var(--primary-light);
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+    }
+    .analytics-card ul { 
+        list-style: none; 
+        padding-left: 0;
+        margin-bottom: 0;
+    }
+    .analytics-card li { 
+        display: flex; 
+        justify-content: space-between; 
+        padding: 0.7rem 0; 
+        border-bottom: 1px solid var(--gray-100); 
+        flex-wrap: wrap; 
+        gap: 5px; 
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+    }
+    .analytics-card li:hover {
+        background-color: rgba(0,0,0,0.01);
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+        margin-left: -0.5rem;
+        margin-right: -0.5rem;
+        border-radius: 4px;
+    }
+    .analytics-card li:last-child { 
+        border-bottom: none; 
+    }
+    .item-details { 
+        display: flex; 
+        flex-direction: column; 
+    }
+    .item-name { 
+        font-weight: 600;
+        color: var(--dark);
+    }
+    .item-meta { 
+        font-size: 0.8rem; 
+        color: var(--gray-500); 
+        margin-top: 0.2rem; 
+    }
+    .item-value { 
+        font-weight: 500; 
+        text-align: right; 
+        white-space: nowrap; 
+    }
+    .item-value .profit { 
+        color: var(--success); 
+        font-size: 0.8rem; 
+        display: block;
+        font-weight: 600;
+    }
+    .unsold-item { 
+        color: var(--danger);
+        font-weight: 600;
+    }
+    
+    /* Sales value styling with better visual hierarchy */
+    .net-sales-value { 
+        color: var(--primary); 
+        font-weight: bold;
+        font-size: 1rem;
+    }
+    .gross-sales-value { 
+        color: var(--gray-700); 
+        font-size: 0.85em;
+        display: block;
+        margin-top: 0.2rem;
+    }
+    .returns-value, .discounts-value { 
+        color: var(--danger); 
+        font-size: 0.85em;
+        display: block;
+    }
+
+    /* Form styling with more modern appearance */
+    .custom-analytics-form { 
+        margin-bottom: 2rem; 
+        background-color: var(--white); 
+        padding: 1.8rem; 
+        border-radius: var(--border-radius); 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.07);
+        border: 1px solid rgba(0,0,0,0.04);
+    }
+    .custom-analytics-form .form-label {
+        font-weight: 500;
+        color: var(--gray-700);
+        margin-bottom: 0.5rem;
+    }
+    .custom-analytics-form .form-control {
+        border: 1px solid var(--gray-200);
+        border-radius: 6px;
+        padding: 0.6rem 0.8rem;
+        font-size: 0.95rem;
+        transition: all 0.25s ease;
+    }
+    .custom-analytics-form .form-control:focus {
+        border-color: var(--primary-light);
+        box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.15);
+    }
+    .custom-analytics-form .btn {
+        padding: 0.6rem 1rem;
+        font-weight: 500;
+        letter-spacing: 0.3px;
+        transition: all 0.3s ease;
+    }
+    .custom-analytics-form .btn:hover {
+        transform: translateY(-2px);
+    }
+    .custom-analytics-form .btn i {
+        margin-right: 0.4rem;
+    }
+    .custom-analytics-form .row { 
+        align-items: flex-end; 
+    }
+    .custom-analytics-results .card-value { 
+        font-size: 1.5rem; 
+    }
+    .custom-analytics-results .card-label { 
+        font-size: 0.8rem; 
+    }
+    .custom-analytics-results h3 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        color: var(--primary-dark);
+    }
+    
+    /* Page header styling */
+    .page-header {
+        margin-bottom: 2rem;
+    }
+    .page-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--dark);
+        margin-bottom: 0.5rem;
+        letter-spacing: -0.5px;
+        position: relative;
+        padding-bottom: 0.5rem;
+    }
+    .page-title:after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 60px;
+        height: 4px;
+        background-color: var(--primary);
+        border-radius: 2px;
+    }
+    
+    /* Responsive improvements */
+    @media (max-width: 768px) {
+        .summary-cards {
+            grid-template-columns: repeat(auto-fit, minmax(100%, 1fr));
+        }
+        .analytics-grid {
+            grid-template-columns: 1fr;
+        }
+        .analytics-card li {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .item-value {
+            text-align: left;
+            margin-top: 0.5rem;
+        }
+    }
+    
+    /* Alert styling */
+    .alert {
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .table-responsive { 
+        overflow-x: auto;
+        border-radius: var(--border-radius);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Dashboard Overview</h1>
+</div>
+
+<!-- Standard Summary Cards -->
+<div class="summary-cards">
+    <div class="summary-card">
+        <div class="card-icon icon-primary"><i class="fas fa-dollar-sign"></i></div>
+        <div class="card-info">
+            {% set current_month_data = monthly_sales | selectattr('month', 'equalto', now.strftime('%Y-%m')) | list %}
+            <div class="card-value">₹{{ "%.2f"|format(current_month_data[0].net_sales) if current_month_data and current_month_data[0].net_sales is defined else "0.00" }}</div>
+            <div class="card-label">This Month's Net Revenue</div>
+        </div>
+    </div>
+     <div class="summary-card">
+        <div class="card-icon icon-success"><i class="fas fa-chart-line"></i></div>
+        <div class="card-info">
+            <div class="card-value">
+                 {% set total_net_revenue = yearly_sales | sum(attribute='net_sales') if yearly_sales and yearly_sales[0].net_sales is defined else 0 %}
+                 ₹{{ "%.2f"|format(total_net_revenue) }}
+            </div>
+             <div class="card-label">Total Net Revenue (All Time)</div>
+        </div>
+    </div>
+    <div class="summary-card">
+        <div class="card-icon icon-warning"><i class="fas fa-star"></i></div>
+        <div class="card-info">
+            <div class="card-value">{{ (best_sellers[0].name if best_sellers else "N/A") | truncate(20) }}</div>
+            <div class="card-label">Top Selling Item (Units)</div>
+        </div>
+    </div>
+    <div class="summary-card">
+        <div class="card-icon icon-danger"><i class="fas fa-box-open"></i></div>
+        <div class="card-info">
+            <div class="card-value">{{ unsold_products | length if unsold_products else 0 }}</div>
+            <div class="card-label">Products Never Sold</div>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Date Range Analytics Section -->
+<div class="analytics-section">
+    <h2 class="section-title"><i class="fas fa-calendar-alt"></i>Custom Date Range Analytics</h2>
+    <form method="GET" action="{{ url_for('dashboard') }}" class="custom-analytics-form card">
+        <div class="row gx-3 gy-3">
+            <div class="col-md-4 form-group">
+                <label for="from_date" class="form-label">From Date:</label>
+                <input type="date" id="from_date" name="from_date" class="form-control" value="{{ from_date_filter or '' }}" required>
+            </div>
+            <div class="col-md-4 form-group">
+                <label for="to_date" class="form-label">To Date:</label>
+                <input type="date" id="to_date" name="to_date" class="form-control" value="{{ to_date_filter or '' }}" required>
+            </div>
+            <div class="col-md-2 form-group">
+                <button type="submit" class="btn btn-primary w-100"><i class="fas fa-search"></i> View</button>
+            </div>
+            <div class="col-md-2 form-group">
+                {% if from_date_filter and to_date_filter and custom_range_analytics and not custom_range_analytics.error %}
+                <a href="{{ url_for('export_dashboard_custom_range', from_date=from_date_filter, to_date=to_date_filter) }}" class="btn btn-success w-100">
+                    <i class="fas fa-file-excel"></i> Export
+                </a>
+                {% else %}
+                <button type="button" class="btn btn-success w-100" disabled title="Select date range first"><i class="fas fa-file-excel"></i> Export</button>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+
+    {% if from_date_filter and to_date_filter %}
+        {% if custom_range_analytics and not custom_range_analytics.error %}
+        <div class="custom-analytics-results">
+            <h3 class="mt-3 mb-3">Results for {{ from_date_filter }} to {{ to_date_filter }}:</h3>
+            <div class="summary-cards">
+                <div class="summary-card">
+                    <div class="card-icon icon-primary"><i class="fas fa-money-bill-wave"></i></div>
+                    <div class="card-info">
+                        <div class="card-value">₹{{ "%.2f"|format(custom_range_analytics.total_gross_sales) }}</div>
+                        <div class="card-label">Total Gross Sales</div>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="card-icon icon-info"><i class="fas fa-tags"></i></div>
+                    <div class="card-info">
+                        <div class="card-value">₹{{ "%.2f"|format(custom_range_analytics.total_discounts_on_bills) }}</div>
+                        <div class="card-label">Total Bill Discounts</div>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="card-icon icon-danger"><i class="fas fa-undo-alt"></i></div>
+                    <div class="card-info">
+                        <div class="card-value">₹{{ "%.2f"|format(custom_range_analytics.total_returns_value) }}</div>
+                        <div class="card-label">Total Returns Value</div>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="card-icon icon-success"><i class="fas fa-chart-line"></i></div>
+                    <div class="card-info">
+                        <div class="card-value">₹{{ "%.2f"|format(custom_range_analytics.total_net_sales) }}</div>
+                        <div class="card-label">Total Net Sales</div>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="card-icon icon-success"><i class="fas fa-hand-holding-usd"></i></div> {# Changed icon for profit #}
+                    <div class="card-info">
+                        <div class="card-value">₹{{ "%.2f"|format(custom_range_analytics.estimated_total_profit) }}</div>
+                        <div class="card-label">Estimated Total Profit</div>
+                    </div>
+                </div>
+                 <div class="summary-card">
+                    <div class="card-icon icon-secondary"><i class="fas fa-file-invoice-dollar"></i></div>
+                    <div class="card-info">
+                        <div class="card-value">{{ custom_range_analytics.number_of_bills }}</div>
+                        <div class="card-label">Number of Bills</div>
+                    </div>
+                </div>
+                 <div class="summary-card">
+                    <div class="card-icon icon-secondary"><i class="fas fa-box"></i></div>
+                    <div class="card-info">
+                        <div class="card-value">{{ custom_range_analytics.total_items_sold_gross_qty }}</div>
+                        <div class="card-label">Total Items Sold (Gross)</div>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="card-icon icon-secondary"><i class="fas fa-divide"></i></div>
+                    <div class="card-info">
+                        <div class="card-value">{{ "%.2f"|format(custom_range_analytics.avg_items_per_bill) }}</div>
+                        <div class="card-label">Avg. Items/Bill</div>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="card-icon icon-secondary"><i class="fas fa-balance-scale-right"></i></div>
+                    <div class="card-info">
+                        <div class="card-value">₹{{ "%.2f"|format(custom_range_analytics.avg_bill_value_net) }}</div>
+                        <div class="card-label">Avg. Bill Value (Net)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="analytics-grid" style="margin-top: 1.5rem;">
+                <div class="analytics-card">
+                    <h3><i class="fas fa-sort-amount-up"></i> Top 5 Sellers (by Net Quantity)</h3>
+                    {% if custom_range_analytics.top_sellers_by_net_qty %}
+                        <ul>
+                        {% for item in custom_range_analytics.top_sellers_by_net_qty %}
+                            <li>
+                                <span class="item-name">{{ item.name }}</span>
+                                <span class="item-value">Net Sold: {{ item.net_sold_qty }} <small class="text-muted"> (Gross: {{item.gross_sold_qty}} Ret: {{item.returned_qty}})</small></span>
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    {% else %}<p class="text-muted p-2">No sales data for top products in this range.</p>{% endif %}
+                </div>
+                <div class="analytics-card">
+                    <h3><i class="fas fa-dollar-sign"></i> Top 5 Sellers (by Gross Revenue)</h3>
+                     {% if custom_range_analytics.top_sellers_by_gross_revenue %}
+                        <ul>
+                        {% for item in custom_range_analytics.top_sellers_by_gross_revenue %}
+                            <li>
+                                <span class="item-name">{{ item.name }}</span>
+                                <span class="item-value">Revenue: ₹{{ "%.2f"|format(item.gross_revenue) }} <small class="text-muted"> (Sold: {{item.gross_sold_qty}} Ret: {{item.returned_qty}})</small></span>
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    {% else %}<p class="text-muted p-2">No sales data for top products in this range.</p>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% elif custom_range_analytics and custom_range_analytics.error %}
+            <div class="alert alert-danger mt-3">
+                Could not load custom analytics: {{ custom_range_analytics.error }}
+            </div>
+        {% elif from_date_filter and to_date_filter %} 
+            {# This case might be redundant if custom_range_analytics is always set or has an error key #}
+            <div class="alert alert-info mt-3">
+                No data found for the selected date range: {{ from_date_filter }} to {{ to_date_filter }}.
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+
+
+<!-- Standard Periodic Analytics -->
+<div class="analytics-section">
+    <h2 class="section-title"><i class="fas fa-history"></i>Standard Periodic Sales</h2>
+    <div class="analytics-grid">
+        <div class="analytics-card">
+            <h3><i class="fas fa-calendar-day"></i> Sales Last 7 Days</h3>
+            {% if daily_sales %}
+                <ul>
+                    {% for sale in daily_sales %}
+                    <li>
+                        <span class="item-name">{{ sale.date }}</span> 
+                        <div class="item-value">
+                            <span class="net-sales-value">Net: ₹{{ "%.2f"|format(sale.net_sales) }}</span>
+                            <span class="gross-sales-value">Gross: ₹{{ "%.2f"|format(sale.total_sales) }}</span>
+                            <span class="discounts-value">Discounts: ₹{{ "%.2f"|format(sale.total_discounts_on_bills) }}</span>
+                            <span class="returns-value">Returns: ₹{{ "%.2f"|format(sale.total_returns_value) }}</span>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}<p class="text-muted px-2">No recent daily sales.</p>{% endif %}
+        </div>
+         <div class="analytics-card">
+             <h3><i class="fas fa-calendar-week"></i> Sales Last 4 Weeks</h3>
+             {% if weekly_sales %}
+                <ul>
+                    {% for sale in weekly_sales %}
+                    <li>
+                        <span class="item-name">{{ sale.week }}</span>
+                        <div class="item-value">
+                            <span class="net-sales-value">Net: ₹{{ "%.2f"|format(sale.net_sales) }}</span>
+                            <span class="gross-sales-value">Gross: ₹{{ "%.2f"|format(sale.total_sales) }}</span>
+                             <span class="discounts-value">Disc: ₹{{ "%.2f"|format(sale.total_discounts_on_bills) }}</span>
+                            <span class="returns-value">Ret: ₹{{ "%.2f"|format(sale.total_returns_value) }}</span>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+             {% else %}<p class="text-muted px-2">No recent weekly sales.</p>{% endif %}
+         </div>
+         <div class="analytics-card">
+             <h3><i class="fas fa-calendar-alt"></i> Sales Last 12 Months</h3>
+             {% if monthly_sales %}
+                <ul>
+                    {% for sale in monthly_sales %}
+                    <li>
+                        <span class="item-name">{{ sale.month }}</span>
+                        <div class="item-value">
+                            <span class="net-sales-value">Net: ₹{{ "%.2f"|format(sale.net_sales) }}</span>
+                             <span class="gross-sales-value">Gross: ₹{{ "%.2f"|format(sale.total_sales) }}</span>
+                             <span class="discounts-value">Disc: ₹{{ "%.2f"|format(sale.total_discounts_on_bills) }}</span>
+                            <span class="returns-value">Ret: ₹{{ "%.2f"|format(sale.total_returns_value) }}</span>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}<p class="text-muted px-2">No monthly sales data.</p>{% endif %}
+         </div>
+         <div class="analytics-card">
+             <h3><i class="fas fa-chart-bar"></i> Yearly Sales</h3>
+             {% if yearly_sales %}
+                <ul>
+                    {% for sale in yearly_sales %}
+                    <li>
+                        <span class="item-name">Year {{ sale.year }}</span>
+                        <div class="item-value">
+                            <span class="net-sales-value">Net: ₹{{ "%.2f"|format(sale.net_sales) }}</span>
+                             <span class="gross-sales-value">Gross: ₹{{ "%.2f"|format(sale.total_sales) }}</span>
+                             <span class="discounts-value">Disc: ₹{{ "%.2f"|format(sale.total_discounts_on_bills) }}</span>
+                            <span class="returns-value">Ret: ₹{{ "%.2f"|format(sale.total_returns_value) }}</span>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}<p class="text-muted px-2">No yearly sales data.</p>{% endif %}
+         </div>
+     </div>
+</div>
+
+<div class="analytics-section">
+     <h2 class="section-title"><i class="fas fa-boxes"></i>Inventory Insights</h2>
+    <div class="analytics-grid">
+        <div class="analytics-card">
+            <h3><i class="fas fa-trophy"></i> Top 5 Best Sellers (Gross Units)</h3>
+            {% if best_sellers %}
+                <ul>
+                    {% for item in best_sellers %}
+                    <li>
+                        <div class="item-details">
+                            <span class="item-name">{{ item.name }}</span>
+                            <span class="item-meta">{{ item.total_sold }} units sold</span>
+                        </div>
+                        <div class="item-value">
+                            <span>Gross Revenue: ₹{{ "%.2f"|format(item.total_sold * item.selling_price) }}</span>
+                             {% if item.profit is defined %}
+                                <span class="profit">Est. Gross Profit: +₹{{ "%.2f"|format(item.profit) }}</span>
+                             {% endif %}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}<p class="text-muted px-2">No sales data yet.</p>{% endif %}
+        </div>
+
+        <div class="analytics-card">
+            <h3><i class="fas fa-box-open"></i> Products Never Sold</h3>
+            {% if unsold_products %}
+                <ul>
+                    {% for item in unsold_products %}
+                    <li>
+                        <div class="item-details">
+                            <span class="item-name">{{ item.name }}</span>
+                             <span class="item-meta">{{ item.category }}</span>
+                        </div>
+                        <div class="item-value unsold-item">{{ item.quantity }} in stock</div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}<p class="text-muted px-2">All products have sales or no products listed.</p>{% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set default dates for date pickers if not already set by query params
+        const fromDateInput = document.getElementById('from_date');
+        const toDateInput = document.getElementById('to_date');
+        const today = new Date().toISOString().split('T')[0];
+
+        if (!fromDateInput.value) {
+            const oneMonthAgo = new Date();
+            oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+            fromDateInput.value = oneMonthAgo.toISOString().split('T')[0];
+        }
+        if (!toDateInput.value) {
+            toDateInput.value = today;
+        }
+    });
+</script>
+{% endblock %}
