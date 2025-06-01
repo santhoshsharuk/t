@@ -57,16 +57,30 @@ def get_database_path_for_init_check():
 
 DATABASE_FOR_CHECK = get_database_path_for_init_check()
 
+# Initial DB check and creation before app context is fully available
+# This runs once at startup.
 if not os.path.exists(DATABASE_FOR_CHECK):
     try:
         print(f"Database not found at {DATABASE_FOR_CHECK}, initializing...")
         os.makedirs(os.path.dirname(DATABASE_FOR_CHECK), exist_ok=True)
         init_db() 
-        print("Database initialized.")
+        print("Database initialized at startup.")
     except Exception as e:
-        print(f"Error initializing database: {e}")
+        print(f"Error initializing database at startup: {e}")
         traceback.print_exc()
         exit(1)
+else:
+    # Database file exists. Run init_db() to ensure tables are created if missing.
+    # init_db() uses "CREATE TABLE IF NOT EXISTS" so it's safe.
+    try:
+        print(f"Database found at {DATABASE_FOR_CHECK}. Ensuring tables via init_db().")
+        init_db()
+        print("Database tables checked/ensured at startup.")
+    except Exception as e:
+        print(f"Error running init_db() for existing database at startup: {e}")
+        traceback.print_exc()
+        exit(1)
+
 
 def get_db():
     if not hasattr(g, 'sqlite_db'):
@@ -685,7 +699,7 @@ def billing():
     if db is None: flash("Database connection unavailable for billing.", "danger"); return render_template('billing.html', cart=[], total=0, products=[], discounts=[], applied_discount_details=None, current_discount_amount_for_display=0.0, total_before_discount=0.0, win32print_available=(win32print is not None))
     if 'cart' not in session: session['cart'] = []
     
-    discounts_list = get_all_discounts() 
+    discounts_list = get_all_discounts() # Returns list of (id, name, type, value)
     applied_discount_id = session.get('applied_bill_discount_id') 
     applied_discount_details = None
     current_discount_amount_for_display = 0.0
@@ -694,10 +708,23 @@ def billing():
     total_before_discount_for_display = sum(item['price'] * item['qty'] for item in cart_items_for_display) 
 
     if applied_discount_id:
-        disc_info_tuple = get_discount(int(applied_discount_id)) 
+        disc_info_tuple = get_discount(int(applied_discount_id)) # Returns (id, name, type, value)
         if disc_info_tuple:
-            applied_discount_details = {'id': disc_info_tuple[0], 'name': disc_info_tuple[1], 'percent': disc_info_tuple[2]}
-            current_discount_amount_for_display = total_before_discount_for_display * (applied_discount_details['percent'] / 100)
+            applied_discount_details = {
+                'id': disc_info_tuple[0], 
+                'name': disc_info_tuple[1], 
+                'type': disc_info_tuple[2], 
+                'value': disc_info_tuple[3]
+            }
+            if applied_discount_details['type'] == 'percentage':
+                current_discount_amount_for_display = total_before_discount_for_display * (applied_discount_details['value'] / 100)
+            elif applied_discount_details['type'] == 'fixed':
+                current_discount_amount_for_display = applied_discount_details['value']
+                current_discount_amount_for_display = min(current_discount_amount_for_display, total_before_discount_for_display) # Cap discount
+            else:
+                current_discount_amount_for_display = 0.0
+                flash("An unknown discount type was encountered. Discount not applied.", "warning")
+
 
     final_total_payable_for_display = total_before_discount_for_display - current_discount_amount_for_display
 
@@ -764,13 +791,21 @@ def billing():
                 bill_total_gross = sum(item['price'] * item['qty'] for item in cart_for_sale)
                 bill_discount_id_final = session.get('applied_bill_discount_id')
                 bill_discount_amount_final = 0.0
-                applied_discount_percent_for_receipt = 0.0
+                applied_discount_display_for_receipt = "" # For flash message string
                 
                 if bill_discount_id_final:
-                    disc_details_tuple = get_discount(int(bill_discount_id_final)) 
+                    disc_details_tuple = get_discount(int(bill_discount_id_final)) # (id, name, type, value)
                     if disc_details_tuple:
-                        applied_discount_percent_for_receipt = disc_details_tuple[2]
-                        bill_discount_amount_final = bill_total_gross * (applied_discount_percent_for_receipt / 100)
+                        _id, _name, discount_type, discount_value = disc_details_tuple
+                        if discount_type == 'percentage':
+                            bill_discount_amount_final = bill_total_gross * (discount_value / 100)
+                            applied_discount_display_for_receipt = f"{discount_value}%"
+                        elif discount_type == 'fixed':
+                            bill_discount_amount_final = discount_value
+                            bill_discount_amount_final = min(bill_discount_amount_final, bill_total_gross) # Cap discount
+                            applied_discount_display_for_receipt = f"₹{discount_value:.2f}"
+                        else: # Should not happen
+                             bill_discount_amount_final = 0.0
                 
                 final_amount_payable = bill_total_gross - bill_discount_amount_final
                 sale_time = datetime.now()
@@ -804,7 +839,8 @@ def billing():
                     db.commit()
                     
                     sale_flash_msg = f"Sale completed! Bill No: {bill_identifier_for_db}. Total: ₹{final_amount_payable:.2f}. Payment: {payment_method_from_form}."
-                    if bill_discount_amount_final > 0: sale_flash_msg += f" (Discount of {applied_discount_percent_for_receipt}% [₹{bill_discount_amount_final:.2f}] applied)."
+                    if bill_discount_amount_final > 0 and applied_discount_display_for_receipt:
+                        sale_flash_msg += f" (Discount of {applied_discount_display_for_receipt} [Actual Value: ₹{bill_discount_amount_final:.2f}] applied)."
                     flash(sale_flash_msg, "success")
 
                     print_success_flag = False; print_status_message = "Printing skipped or printer not available."
@@ -1274,33 +1310,93 @@ def get_printers():
 @app.route('/discounts')
 def discount_list():
     if 'user' not in session: return redirect(url_for('login'))
-    discounts_data = get_all_discounts() 
+    discounts_data = get_all_discounts() # Now returns (id, name, type, value)
     return render_template('discounts.html', discounts=discounts_data)
 
 @app.route('/discounts/new', methods=['GET','POST'])
 def discount_new():
-    if 'user' not in session or session.get('role')!='admin': flash("Admin only.","danger"); return redirect(url_for('discount_list'))
-    if request.method=='POST':
-        name = request.form['name'].strip().upper(); percent_str = request.form['percent']
+    if 'user' not in session or session.get('role') != 'admin':
+        flash("Admin access required to create discounts.", "danger")
+        return redirect(url_for('discount_list'))
+    
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip().upper()
+        discount_type = request.form.get('discount_type') # 'percentage' or 'fixed'
+        value_str = request.form.get('value')
+        
+        errors = []
+        if not name:
+            errors.append("Discount name cannot be empty.")
+        if not discount_type or discount_type not in ['percentage', 'fixed']:
+            errors.append("A valid discount type (Percentage or Fixed Amount) must be selected.")
+        
+        value = None
+        if value_str is None or value_str == '':
+             errors.append("Value cannot be empty.")
+        else:
+            try:
+                value = float(value_str)
+                if discount_type == 'percentage':
+                    if not (0 <= value <= 100):
+                        errors.append("Percentage value must be between 0.00 and 100.00.")
+                elif discount_type == 'fixed':
+                    if value < 0:
+                        errors.append("Fixed amount value cannot be negative.")
+                # If discount_type is invalid, an error is already added.
+            except ValueError:
+                errors.append("Invalid format for value. Please enter a number.")
+
+        if errors:
+            for error_msg in errors:
+                flash(error_msg, "danger")
+            # Return to the form, preserving user input
+            return render_template('discount_new.html') # request.form is available in template context
+
+        # If no errors, proceed to create discount
         try:
-            percent = float(percent_str)
-            if not name or percent < 0 or percent > 100: flash("Invalid discount name or percentage (0-100).","danger")
-            else: create_discount(name, percent); flash("Discount created.","success"); return redirect(url_for('discount_list'))
-        except ValueError: flash("Invalid percentage format.", "danger")
-        except sqlite3.IntegrityError: flash(f"Discount '{name}' already exists or other DB constraint violated.", "danger")
-        except Exception as e: flash(f"Could not create discount: {e}","danger"); traceback.print_exc()
-    return render_template('discount_new.html')
+            create_discount(name, discount_type, value) # Updated model function
+            flash(f"Discount '{name}' ({discount_type.capitalize()}: {value}) created successfully.", "success")
+            return redirect(url_for('discount_list'))
+        except sqlite3.IntegrityError: # Handles UNIQUE constraint on name
+            db = get_db()
+            if db: db.rollback()
+            flash(f"Discount name '{name}' already exists. Please choose a different name.", "danger")
+        except Exception as e:
+            db = get_db()
+            if db: db.rollback()
+            flash(f"Could not create discount: {e}", "danger")
+            traceback.print_exc()
+        # Fall through to render form again if DB error occurred after validation
+        return render_template('discount_new.html')
+
+    return render_template('discount_new.html') # For GET requests
 
 # --- Main Execution ---
 if __name__ == '__main__':
+    # Ensure barcode directory exists
     barcode_dir = os.path.join(app.static_folder, 'barcodes')
     if not os.path.exists(barcode_dir):
-        try: os.makedirs(barcode_dir); print(f"Created directory: {barcode_dir}")
-        except OSError as e: print(f"Error creating barcode directory {barcode_dir}: {e}"); traceback.print_exc()
-    if not os.path.exists(DATABASE_FOR_CHECK):
-        print(f"Database still not found at {DATABASE_FOR_CHECK} before run, attempting init again...")
         try:
-            os.makedirs(os.path.dirname(DATABASE_FOR_CHECK), exist_ok=True)
-            init_db(); print("Database initialized successfully before run.")
-        except Exception as e: print(f"CRITICAL: Failed to initialize database before run: {e}"); traceback.print_exc(); exit(1)
+            os.makedirs(barcode_dir)
+            print(f"Created directory: {barcode_dir}")
+        except OSError as e:
+            print(f"Warning: Error creating barcode directory {barcode_dir}: {e}")
+            traceback.print_exc()
+            # This is not treated as a critical error, app can run without it if barcodes are not generated.
+
+    # Database setup (moved outside app context as it's a one-time startup check)
+    # This code block is now at the top-level of the script, executed before app.run()
+    # The `DATABASE_FOR_CHECK` and `init_db` are already defined globally.
+    # The initial DB check and creation logic has been moved to the global scope
+    # near the `DATABASE_FOR_CHECK` definition.
+    # The code here now focuses on just running the app.
+
+    # The initial DB check/init is now done earlier in the script.
+    # We can add a final check here or assume the earlier block handled it.
+    # For safety, a simple re-check:
+    if not os.path.exists(DATABASE_FOR_CHECK):
+        print(f"CRITICAL: Database at {DATABASE_FOR_CHECK} still not found before app.run(). Previous init must have failed.")
+        exit(1)
+    
+    print("Starting Flask application...")
     app.run(debug=True, host='0.0.0.0', port=5000)

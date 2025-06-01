@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}New Discount – ToyStore{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Create Discount</h1>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<form method="POST" class="card card-body">
+  <div class="mb-3">
+    <label for="name" class="form-label">Discount Name</label>
+    <input type="text" id="name" name="name" class="form-control" value="{{ request.form.name }}" required>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Discount Type</label>
+    <div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="discount_type" id="type_percentage" value="percentage" 
+               {% if request.form.discount_type == 'percentage' or not request.form.discount_type %}checked{% endif %} required>
+        <label class="form-check-label" for="type_percentage">Percentage</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="discount_type" id="type_fixed" value="fixed"
+               {% if request.form.discount_type == 'fixed' %}checked{% endif %} required>
+        <label class="form-check-label" for="type_fixed">Fixed Amount</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label for="value" class="form-label">Value</label>
+    <div class="input-group">
+        <span class="input-group-text" id="value_prefix"></span>
+        <input
+          type="number"
+          id="value"
+          name="value"
+          class="form-control"
+          step="0.01"
+          min="0"
+          value="{{ request.form.value }}"
+          required
+        >
+        <span class="input-group-text" id="value_suffix"></span>
+    </div>
+    <small id="valueHelp" class="form-text text-muted">
+        Enter percentage (e.g., 10 for 10%) or fixed amount (e.g., 50 for ₹50).
+    </small>
+  </div>
+
+  <button type="submit" class="btn btn-success">
+    <i class="fas fa-save"></i> Create
+  </button>
+  <a href="{{ url_for('discount_list') }}" class="btn btn-secondary ms-2">
+    Cancel
+  </a>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const typeRadios = document.querySelectorAll('input[name="discount_type"]');
+    const valueInput = document.getElementById('value');
+    const valuePrefix = document.getElementById('value_prefix');
+    const valueSuffix = document.getElementById('value_suffix');
+    const valueHelp = document.getElementById('valueHelp');
+
+    function updateValueInput() {
+        const selectedType = document.querySelector('input[name="discount_type"]:checked').value;
+        if (selectedType === 'percentage') {
+            valuePrefix.textContent = '';
+            valueSuffix.textContent = '%';
+            valueInput.max = 100; // Set max for percentage
+            valueHelp.textContent = 'Enter percentage (0-100). E.g., 10 for 10%.';
+        } else if (selectedType === 'fixed') {
+            valuePrefix.textContent = '₹';
+            valueSuffix.textContent = '';
+            valueInput.removeAttribute('max'); // Remove max for fixed amount
+            valueHelp.textContent = 'Enter fixed discount amount. E.g., 50 for ₹50.';
+        }
+    }
+
+    typeRadios.forEach(radio => {
+        radio.addEventListener('change', updateValueInput);
+    });
+
+    // Initial setup on page load
+    updateValueInput();
+});
+</script>
+{% endblock %}

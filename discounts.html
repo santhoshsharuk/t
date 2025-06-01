@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Discounts – ToyStore{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Discounts</h1>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<div class="mb-3">
+  <a href="{{ url_for('discount_new') }}" class="btn btn-primary">
+    <i class="fas fa-plus-circle"></i> New Discount
+  </a>
+</div>
+
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% if discounts %}
+      {% for did, dname, dtype, dvalue in discounts %}
+      <tr>
+        <td>{{ dname }}</td>
+        <td>{{ dtype.capitalize() }}</td>
+        <td>
+            {% if dtype == 'percentage' %}
+                {{ "%.2f"|format(dvalue|float) }}%
+            {% elif dtype == 'fixed' %}
+                ₹{{ "%.2f"|format(dvalue|float) }}
+            {% else %}
+                {{ dvalue }}
+            {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    {% else %}
+      <tr>
+        <td colspan="3" class="text-center">No discounts defined yet.</td>
+      </tr>
+    {% endif %}
+  </tbody>
+</table>
+{% endblock %}
